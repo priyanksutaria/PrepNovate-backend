@@ -1,3 +1,4 @@
+const MockTest = require('../models/MockTest');
 const Test = require('../models/Test');
 const sendResponse = require('../utils/sendResponce');
 
@@ -178,5 +179,69 @@ exports.deleteQuestion = async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+exports.addMockTest = async (req, res) => {
+  try {
+    console.log('gi');
+    const {
+      name,
+      noofquestions,
+      timelimit,
+      passingscore,
+      description,
+      weightage,
+    } = req.body;
+
+    toAddQuestions = [];
+    for (const key in weightage) {
+      if (weightage.hasOwnProperty(key)) {
+        const tofindQuestions = Math.round(
+          (noofquestions * weightage[key]) / 100
+        );
+
+        const randomQuestions = await Test.aggregate([
+          { $match: { testnum: key } },
+          { $unwind: '$questions' },
+          { $sample: { size: tofindQuestions } },
+          { $replaceRoot: { newRoot: '$questions' } },
+        ]);
+
+        toAddQuestions.push(...randomQuestions);
+      }
+    }
+    const mockTest = new MockTest({
+      name,
+      noofquestions,
+      timelimit,
+      passingscore,
+      description,
+      weightage,
+      questions: toAddQuestions,
+    });
+
+    await mockTest.save();
+    sendResponse(res, 200, true, 'Mock Test added successfully', mockTest);
+  } catch (error) {
+    console.error(error);
+    sendResponse(res, 500, false, 'Server Error');
+  }
+};
+
+exports.getMockTest = async (req, res) => {
+  try {
+    const { name } = req.query;
+    if (!name) {
+      return sendResponse(res, 400, false, 'Test name is required');
+    }
+    const test = await MockTest.findOne({ name });
+    if (!test) {
+      return sendResponse(res, 404, false, 'Test not found');
+    }
+    sendResponse(res, 200, true, 'Test fetched successfully', test);
+  } catch (error) {
+    console.error(error);
+    sendResponse(res, 500, false, 'Server Error');
   }
 };
