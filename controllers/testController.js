@@ -1,20 +1,8 @@
+const { TokenExpiredError } = require('jsonwebtoken');
 const MockTest = require('../models/MockTest');
 const Test = require('../models/Test');
 const sendResponse = require('../utils/sendResponce');
-
-exports.getTest = async (req, res) => {
-  try {
-    const { testnum } = req.query;
-    if (!testnum) {
-      return sendResponse(res, 400, false, 'Test number is required');
-    }
-    const test = await Test.findOne({ testnum });
-    sendResponse(res, 200, true, 'Test fetched successfully', test);
-  } catch (error) {
-    console.error(error);
-    sendResponse(res, 500, false, 'Server Error');
-  }
-};
+const Leaderboard = require('../models/Leaderboard');
 
 exports.addQuestion = async (req, res) => {
   try {
@@ -240,6 +228,89 @@ exports.getMockTest = async (req, res) => {
       return sendResponse(res, 404, false, 'Test not found');
     }
     sendResponse(res, 200, true, 'Test fetched successfully', test);
+  } catch (error) {
+    console.error(error);
+    sendResponse(res, 500, false, 'Server Error');
+  }
+};
+
+exports.getTest = async (req, res) => {
+  try {
+    const { testnum } = req.query;
+    if (!testnum) {
+      return sendResponse(res, 400, false, 'Test number is required');
+    }
+    const test = await Test.findOne({ testnum });
+    sendResponse(res, 200, true, 'Test fetched successfully', test);
+  } catch (error) {
+    console.error(error);
+    sendResponse(res, 500, false, 'Server Error');
+  }
+};
+exports.getAllMockTest = async (req, res) => {
+  try {
+    const tests = await MockTest.find({}).select('-questions');
+    sendResponse(res, 200, true, 'Tests fetched successfully', tests);
+  } catch (error) {
+    console.error(error);
+    sendResponse(res, 500, false, 'Server Error');
+  }
+};
+exports.giveTest = async (req, res) => {
+  try {
+    const { testnum, score } = req.body;
+    const token = req.header('Authorization').replace('Bearer ', '');
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const user = await User.findOne({ username: decoded.username });
+
+    if (decoded.currentPlan == 'free' && user.testGiven.length >= 2) {
+      return sendResponse(
+        res,
+        400,
+        false,
+        'You have already given 2 tests. Upgrade your plan to give more tests.'
+      );
+    }
+
+    const existingEntry = await Leaderboard.findOne({
+      testnum,
+      email: user.email,
+    });
+
+    user.testGiven.push({ testnum, score });
+    await user.save();
+
+    if (existingEntry) {
+      if (score > existingEntry.score) {
+        await Leaderboard.findByIdAndUpdate(existingEntry._id, { score });
+      }
+    } else {
+      const addtoLeaderboard = {
+        testnum,
+        score,
+        email: user.email,
+        timestamp: new Date(), // optional
+      };
+
+      await Leaderboard.create(addtoLeaderboard);
+    }
+  } catch (error) {
+    sendResponse(res, 500, false, 'Server Error');
+  }
+};
+
+exports.getLeaderBoard = async (req, res) => {
+  try {
+    const { testnum } = req.query;
+    const leaderboard = await Leaderboard.find({ testnum }).sort({ score: -1 });
+    sendResponse(
+      res,
+      200,
+      true,
+      'Leaderboard fetched successfully',
+      leaderboard
+    );
   } catch (error) {
     console.error(error);
     sendResponse(res, 500, false, 'Server Error');

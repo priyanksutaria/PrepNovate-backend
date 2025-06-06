@@ -19,14 +19,20 @@ const User = mongoose.model('User', {
   },
   currentPlan: {
     type: String,
-    enum: ['free', 'premium'], // Add all valid plan types here
+    enum: ['free', 'premium'],
     default: 'free',
     required: true,
   },
-  testGiven: {
-    type: Number,
-    default: 0,
-  },
+  testGiven: [
+    {
+      testnum: {
+        type: String,
+      },
+      score: {
+        type: Number,
+      },
+    },
+  ],
 });
 
 module.exports = User;

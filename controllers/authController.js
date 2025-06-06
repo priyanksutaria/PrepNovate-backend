@@ -101,7 +101,14 @@ exports.loginUser = async (req, res) => {
       sendResponse(res, 400, false, 'Invalid credentials');
       return;
     } else {
-      const token = jwt.sign(user.username, process.env.JWT_SECRET);
+      const token = jwt.sign(
+        {
+          username: user.username,
+          email: user.email,
+          currentPlan: user.currentPlan,
+        },
+        process.env.JWT_SECRET
+      );
       sendResponse(res, 200, true, 'User Logged In Successfully', { token });
     }
   } catch (error) {

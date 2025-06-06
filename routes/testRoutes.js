@@ -10,8 +10,12 @@ router.post('/addBulkQuestion', checkAdmin, testController.bulkAdd);
 router.delete('/deleteQuestion', checkAdmin, testController.deleteQuestion);
 
 //Mock Test
-
 router.post('/addMockTest', checkAdmin, testController.addMockTest);
 router.get('/getMockTest', testController.getMockTest);
+router.get('/getAllMockTest', testController.getAllMockTest);
+
+//Give Test
+router.post('/giveTest', testController.giveTest);
+router.get('/getLeaderboard', testController.getLeaderBoard);
 
 module.exports = router;
