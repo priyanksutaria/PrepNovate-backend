@@ -4,17 +4,11 @@ const sendResponse = require('../utils/sendResponce');
 exports.getFlashCard = async (req, res) => {
   try {
     const { lscLevel } = req.query;
-
-    let flashCards;
-    if (lscLevel) {
-      // Fetch one flash card matching the level
-      flashCards = await FlashCard.findOne({ lscLevel });
-    } else {
-      // Fetch all flash cards
-      flashCards = await FlashCard.find();
+    if (!lscLevel) {
+      return sendResponse(res, 400, false, 'Level,Subject,Chapter is required');
     }
-
-    sendResponse(res, 200, true, 'FlashCard(s) fetched successfully', flashCards);
+    const flashCard = await FlashCard.findOne({ lscLevel });
+    sendResponse(res, 200, true, 'FlashCard fetched successfully', flashCard);
   } catch (error) {
     console.error(error);
     sendResponse(res, 500, false, 'Server Error');
