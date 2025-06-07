@@ -3,13 +3,10 @@ const FlashCard = require('./models/FlashCard');
 
 // Connect to MongoDB
 mongoose
-  .connect(
-    'mongodb+srv://prepnovateofficial:qWErMy9DMGslxd6R@prepnote.znaxzr3.mongodb.net/PrepNote?retryWrites=true&w=majority&appName=PrepNote',
-    {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    }
-  )
+  .connect('mongodb://localhost:27017/INTERNSHIP', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  })
   .then(async () => {
     console.log('Connected to MongoDB');
 

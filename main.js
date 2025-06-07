@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const Test = require('./models/Test'); // adjust the path as needed
 
 mongoose
-  .connect('mongodb://localhost:27017/PrepNote', {
+  .connect('mongodb+srv://prepnovateofficial:qWErMy9DMGslxd6R@prepnote.znaxzr3.mongodb.net/PrepNote?retryWrites=true&w=majority&appName=PrepNote', {
     useNewUrlParser: true,
     useUnifiedTopology: true,
   })

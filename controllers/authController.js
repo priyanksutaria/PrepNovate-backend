@@ -49,7 +49,8 @@ exports.loginAdmin = async (req, res) => {
     } else {
       const token = jwt.sign(
         { name: admin.name, role: 'admin' },
-        process.env.JWT_SECRET
+        process.env.JWT_SECRET,
+        
       );
       sendResponse(res, 200, true, 'Admin Logged In Successfully', { token });
     }

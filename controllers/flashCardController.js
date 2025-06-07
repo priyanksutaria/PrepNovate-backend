@@ -4,11 +4,27 @@ const sendResponse = require('../utils/sendResponce');
 exports.getFlashCard = async (req, res) => {
   try {
     const { lscLevel } = req.query;
-    if (!lscLevel) {
-      return sendResponse(res, 400, false, 'Level,Subject,Chapter is required');
+
+    let flashCards;
+
+    const query = { Cards: { $exists: true, $not: { $size: 0 } } }; // Only include docs with non-empty Cards
+
+    if (lscLevel) {
+      query.lscLevel = lscLevel;
+      // Fetch one flash card with that level and non-empty cards
+      flashCards = await FlashCard.findOne(query);
+    } else {
+      // Fetch all flash cards with non-empty cards
+      flashCards = await FlashCard.find(query);
     }
-    const flashCard = await FlashCard.findOne({ lscLevel });
-    sendResponse(res, 200, true, 'FlashCard fetched successfully', flashCard);
+
+    sendResponse(
+      res,
+      200,
+      true,
+      'FlashCard(s) fetched successfully',
+      flashCards
+    );
   } catch (error) {
     console.error(error);
     sendResponse(res, 500, false, 'Server Error');
