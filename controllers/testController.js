@@ -3,6 +3,8 @@ const MockTest = require('../models/MockTest');
 const Test = require('../models/Test');
 const sendResponse = require('../utils/sendResponce');
 const Leaderboard = require('../models/Leaderboard');
+const jwt = require('jsonwebtoken');
+const User = require('../models/User');
 
 exports.addQuestion = async (req, res) => {
   try {
@@ -234,6 +236,22 @@ exports.getMockTest = async (req, res) => {
   }
 };
 
+exports.deleteMockTest = async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) {
+      return sendResponse(res, 400, false, 'Test name is required');
+    }
+    const test = await MockTest.findOneAndDelete({ name });
+    if (!test) {
+      return sendResponse(res, 404, false, 'Test not found');
+    }
+    sendResponse(res, 200, true, 'Test deleted successfully');
+  } catch (error) {
+    sendResponse(res, 500, false, 'Server Error');
+  }
+};
+
 exports.getTest = async (req, res) => {
   try {
     const { testnum } = req.query;
@@ -256,47 +274,89 @@ exports.getAllMockTest = async (req, res) => {
     sendResponse(res, 500, false, 'Server Error');
   }
 };
+
 exports.giveTest = async (req, res) => {
   try {
     const { testnum, score } = req.body;
     const token = req.header('Authorization').replace('Bearer ', '');
-
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findOne({ username: decoded.username });
-
-    if (decoded.currentPlan == 'free' && user.testGiven.length >= 2) {
+    if (!token) {
       return sendResponse(
         res,
-        400,
+        401,
         false,
-        'You have already given 2 tests. Upgrade your plan to give more tests.'
+        'Not authorized to access this route'
       );
     }
 
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded) {
+      return sendResponse(
+        res,
+        401,
+        false,
+        'Not authorized to access this route'
+      );
+    }
+    const user = await User.findOne({ username: decoded.username });
+
+    // Find if user has already given this test
+    const testIndex = user.testGiven.findIndex(
+      (test) => test.testnum === testnum
+    );
+
+    const uniqueTestsGiven = new Set(user.testGiven.map((t) => t.testnum));
+
+    if (decoded.currentPlan === 'free') {
+      if (testIndex !== -1) {
+        return sendResponse(
+          res,
+          400,
+          false,
+          'Free plan users cannot retake a test.'
+        );
+      }
+
+      if (!uniqueTestsGiven.has(testnum) && uniqueTestsGiven.size >= 2) {
+        return sendResponse(
+          res,
+          400,
+          false,
+          'You have already given 2 tests. Upgrade your plan to give more tests.'
+        );
+      }
+    }
+
+    // For both free and premium: update or insert testGiven entry
+    if (testIndex !== -1) {
+      // If new score is better, update it
+      if (score > user.testGiven[testIndex].score) {
+        user.testGiven[testIndex].score = score;
+      }
+    } else {
+      // New test entry
+      user.testGiven.push({ testnum, score });
+    }
+
+    await user.save();
+
+    // Leaderboard logic
     const existingEntry = await Leaderboard.findOne({
       testnum,
       email: user.email,
     });
-
-    user.testGiven.push({ testnum, score });
-    await user.save();
 
     if (existingEntry) {
       if (score > existingEntry.score) {
         await Leaderboard.findByIdAndUpdate(existingEntry._id, { score });
       }
     } else {
-      const addtoLeaderboard = {
-        testnum,
-        score,
-        email: user.email,
-        timestamp: new Date(), // optional
-      };
-
-      await Leaderboard.create(addtoLeaderboard);
+      await Leaderboard.create({ testnum, score, email: user.email });
     }
+
+    return sendResponse(res, 200, true, 'Test given successfully');
   } catch (error) {
-    sendResponse(res, 500, false, 'Server Error');
+    console.error('Error in giveTest:', error);
+    return sendResponse(res, 500, false, 'Server Error');
   }
 };
 
@@ -312,7 +372,113 @@ exports.getLeaderBoard = async (req, res) => {
       leaderboard
     );
   } catch (error) {
-    console.error(error);
     sendResponse(res, 500, false, 'Server Error');
+  }
+};
+
+exports.getLeaderBoardMockTest = async (req, res) => {
+  try {
+    const { testnum } = req.query;
+    const leaderboard = await Leaderboard.find({ testnum }).sort({
+      score: -1,
+    });
+    sendResponse(
+      res,
+      200,
+      true,
+      'Leaderboard fetched successfully',
+      leaderboard
+    );
+  } catch (error) {
+    sendResponse(res, 500, false, 'Server Error');
+  }
+};
+
+exports.giveMockTest = async (req, res) => {
+  try {
+    const { testnum, score } = req.body;
+    const token = req.header('Authorization').replace('Bearer ', '');
+    if (!token) {
+      return sendResponse(
+        res,
+        401,
+        false,
+        'Not authorized to access this route'
+      );
+    }
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    if (!decoded) {
+      return sendResponse(
+        res,
+        401,
+        false,
+        'Not authorized to access this route'
+      );
+    }
+    const user = await User.findOne({ username: decoded.username });
+
+    // Find if user has already given this test
+    const testIndex = user.MockTestGiven.findIndex(
+      (test) => test.testnum === testnum
+    );
+
+    const uniqueTestsGiven = new Set(user.MockTestGiven.map((t) => t.testnum));
+
+    if (decoded.currentPlan === 'free') {
+      if (testIndex !== -1) {
+        return sendResponse(
+          res,
+          400,
+          false,
+          'Free plan users cannot retake a test.'
+        );
+      }
+
+      if (!uniqueTestsGiven.has(testnum) && uniqueTestsGiven.size >= 1) {
+        return sendResponse(
+          res,
+          400,
+          false,
+          'You have already given 1 Mock test. Upgrade your plan to give more tests.'
+        );
+      }
+    }
+
+    // For both free and premium: update or insert testGiven entry
+    if (testIndex !== -1) {
+      // If new score is better, update it
+      if (score > user.MockTestGiven[testIndex].score) {
+        user.MockTestGiven[testIndex].score = score;
+      }
+    } else {
+      // New test entry
+      user.MockTestGiven.push({ testnum, score });
+    }
+
+    await user.save();
+
+    // Leaderboard logic
+    const existingEntry = await Leaderboard.findOne({
+      testnum,
+      email: user.email,
+    });
+
+    if (existingEntry) {
+      if (score > existingEntry.score) {
+        await Leaderboard.findByIdAndUpdate(existingEntry._id, { score });
+      }
+    } else {
+      await Leaderboard.create({
+        testnum,
+        score,
+        email: user.email,
+      });
+    }
+
+    return sendResponse(res, 200, true, 'Test given successfully');
+  } catch (error) {
+    console.error('Error in giveTest:', error);
+    return sendResponse(res, 500, false, 'Server Error');
   }
 };

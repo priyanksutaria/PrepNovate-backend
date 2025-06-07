@@ -33,6 +33,16 @@ const User = mongoose.model('User', {
       },
     },
   ],
+  MockTestGiven: [
+    {
+      testnum: {
+        type: String,
+      },
+      score: {
+        type: Number,
+      },
+    },
+  ],
 });
 
 module.exports = User;
